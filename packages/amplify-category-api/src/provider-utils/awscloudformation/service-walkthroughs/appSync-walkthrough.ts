@@ -208,6 +208,16 @@ export const serviceWalkthrough = async (context: $TSContext, defaultValuesFilen
     schemaContent = fs.readFileSync(schemaFilePath, 'utf8');
     askToEdit = false;
   } else {
+    const useExperimentalPipelineTransformer = FeatureFlags.getBoolean('graphQLTransformer.useExperimentalPipelinedTransformer');
+
+    if (useExperimentalPipelineTransformer) {
+      const envName = context.amplify.getEnvInfo().envName;
+      schemaContent += '# This allows public create, read, update, and delete access for a limited time to all models via API Key.\n';
+      schemaContent +=
+        '# To configure PRODUCTION-READY authorization rules, review: https://docs.amplify.aws/cli/graphql-transformer/auth\n';
+      schemaContent += `# type AMPLIFY_GLOBAL @allow_public_data_access_with_api_key(in: \"${envName}\") # FOR TESTING ONLY!\n\n`;
+    }
+
     // Schema template selection
     const templateSelectionQuestion = {
       type: inputs[4].type,
@@ -219,7 +229,7 @@ export const serviceWalkthrough = async (context: $TSContext, defaultValuesFilen
 
     const { templateSelection } = await inquirer.prompt(templateSelectionQuestion);
     const schemaFilePath = path.join(graphqlSchemaDir, templateSelection);
-    schemaContent = fs.readFileSync(schemaFilePath, 'utf8');
+    schemaContent += fs.readFileSync(schemaFilePath, 'utf8');
   }
 
   return {
@@ -779,8 +789,8 @@ const buildPolicyResource = (resourceName: string, path: string | null) => {
         {
           Ref: `${category}${resourceName}GraphQLAPIIdOutput`,
         },
-        ...(path ? [path] : [])
-      ]
+        ...(path ? [path] : []),
+      ],
     ],
   };
 };
