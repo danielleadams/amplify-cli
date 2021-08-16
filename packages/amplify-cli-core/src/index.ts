@@ -22,7 +22,7 @@ export * from './utils';
 export * from './banner-message';
 export * from './cliGetCategories';
 export * from './cliRemoveResourcePrompt';
-export * from "./cliViewAPI";
+export * from './cliViewAPI';
 
 // Temporary types until we can finish full type definition across the whole CLI
 
@@ -202,7 +202,6 @@ export interface AmplifyProjectConfig {
 
 export type $TSCopyJob = any;
 
-
 // Temporary interface until Context refactor
 interface AmplifyToolkit {
   confirmPrompt: (prompt: string, defaultValue?: boolean) => Promise<boolean>;
@@ -255,10 +254,11 @@ interface AmplifyToolkit {
   ) => $TSAny;
   sharedQuestions: () => $TSAny;
   showAllHelp: () => $TSAny;
+  showGlobalSandboxModeWarning: (context: $TSContext) => $TSAny;
   showHelp: (header: string, commands: { name: string; description: string }[]) => $TSAny;
-  showHelpfulProviderLinks: (context : $TSContext) => $TSAny;
+  showHelpfulProviderLinks: (context: $TSContext) => $TSAny;
   showResourceTable: () => $TSAny;
-  showStatusTable:( resourceTableParams : ViewResourceTableParams )=> $TSAny; //Enhanced Status with CFN-Diff
+  showStatusTable: (resourceTableParams: ViewResourceTableParams) => $TSAny; //Enhanced Status with CFN-Diff
   serviceSelectionPrompt: (
     context: $TSContext,
     category: string,
