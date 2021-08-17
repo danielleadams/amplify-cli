@@ -21,6 +21,7 @@ import {
   $TSContext,
   open,
 } from 'amplify-cli-core';
+import { defineGlobalSandboxMode } from '../utils/global-sandbox-mode';
 
 const serviceName = 'AppSync';
 const elasticContainerServiceName = 'ElasticContainer';
@@ -209,14 +210,7 @@ export const serviceWalkthrough = async (context: $TSContext, defaultValuesFilen
     askToEdit = false;
   } else {
     const useExperimentalPipelineTransformer = FeatureFlags.getBoolean('graphQLTransformer.useExperimentalPipelinedTransformer');
-
-    if (useExperimentalPipelineTransformer) {
-      const envName = context.amplify.getEnvInfo().envName;
-      schemaContent += '# This allows public create, read, update, and delete access for a limited time to all models via API Key.\n';
-      schemaContent +=
-        '# To configure PRODUCTION-READY authorization rules, review: https://docs.amplify.aws/cli/graphql-transformer/auth\n';
-      schemaContent += `# type AMPLIFY_GLOBAL @allow_public_data_access_with_api_key(in: \"${envName}\") # FOR TESTING ONLY!\n\n`;
-    }
+    schemaContent += useExperimentalPipelineTransformer ? defineGlobalSandboxMode(context) : '';
 
     // Schema template selection
     const templateSelectionQuestion = {
