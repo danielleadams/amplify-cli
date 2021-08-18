@@ -1,7 +1,8 @@
 import chalk from 'chalk';
 import { stateManager } from 'amplify-cli-core';
 
-function getAppSyncApi(apiConfig: any): any {
+function getAppSyncApi(): any {
+  const apiConfig = stateManager.getBackendConfig()?.api;
   let appSyncApi;
 
   Object.keys(apiConfig).forEach(k => {
@@ -11,17 +12,28 @@ function getAppSyncApi(apiConfig: any): any {
   return appSyncApi;
 }
 
-export function showGlobalSandboxModeWarning(context): void {
-  const apiConfig = stateManager.getBackendConfig()['api'];
-  const appSyncApi = getAppSyncApi(apiConfig);
-  const globalSandboxModeConfig = appSyncApi.globalSandboxModeConfig || {};
-  const currEnvName = context.amplify.getEnvInfo().envName;
-  const apiKeyConfig = appSyncApi.output.authConfig.defaultAuthentication.apiKeyConfig;
-  const sandboxEnabledEnv = globalSandboxModeConfig && globalSandboxModeConfig[currEnvName]?.enabled;
-  const expirationDateTime = apiKeyConfig?.apiKeyExpirationDateTime;
-  const expirationDate = new Date(expirationDateTime);
+function getApiKeyConfig(appSyncApi: any): any {
+  const { defaultAuthentication, additionalAuthenticationProviders } = appSyncApi.output.authConfig;
 
-  if (sandboxEnabledEnv) {
+  if (defaultAuthentication.apiKeyConfig) return defaultAuthentication.apiKeyConfig;
+
+  let apiKeyConfig;
+
+  additionalAuthenticationProviders.forEach(authProvider => {
+    if (authProvider.authenticationType === 'API_KEY') apiKeyConfig = authProvider;
+  });
+
+  return apiKeyConfig;
+}
+
+export function showGlobalSandboxModeWarning(context): void {
+  const appSyncApi = getAppSyncApi();
+  const apiKeyConfig = getApiKeyConfig(appSyncApi);
+  const currEnvName = context.amplify.getEnvInfo().envName;
+  const globalSandboxModeConfig = appSyncApi.globalSandboxModeConfig || {};
+  const expirationDate = new Date(apiKeyConfig?.apiKeyExpirationDate);
+
+  if (apiKeyConfig && globalSandboxModeConfig[currEnvName]?.enabled) {
     context.print.info(`
 ⚠️  WARNING: ${chalk.green('"type AMPLIFY_GLOBAL @allow_public_data_access_with_api_key"')} in your GraphQL schema
 allows public create, read, update, and delete access to all models via API Key. This

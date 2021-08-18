@@ -22,6 +22,7 @@ import {
   open,
 } from 'amplify-cli-core';
 import { defineGlobalSandboxMode } from '../utils/global-sandbox-mode';
+import { Duration, Expiration } from '@aws-cdk/core';
 
 const serviceName = 'AppSync';
 const elasticContainerServiceName = 'ElasticContainer';
@@ -623,6 +624,9 @@ async function askApiKeyQuestions() {
   ];
 
   const apiKeyConfig = await inquirer.prompt(apiKeyQuestions);
+  const { apiKeyExpirationDays } = apiKeyConfig;
+  // @ts-ignore
+  apiKeyConfig.apiKeyExpirationDate = Expiration.after(Duration.days(apiKeyExpirationDays)).date;
 
   return {
     authenticationType: 'API_KEY',

@@ -98,6 +98,7 @@ export type AppSyncAuthConfigurationEntry = {
 export type ApiKeyConfig = {
   description?: string;
   apiKeyExpirationDays: number;
+  apiKeyExpirationDate?: any;
 };
 export type UserPoolConfig = {
   userPoolId: string;

@@ -98,14 +98,6 @@ class CfnApiArtifactHandler implements ApiArtifactHandler {
       const envName = this.context.amplify.getEnvInfo().envName;
       globalSandboxModeConfig = {};
       globalSandboxModeConfig[envName] = { enabled: true };
-
-      if (authConfig.defaultAuthentication.authenticationType === 'API_KEY') {
-        const days = authConfig.defaultAuthentication.apiKeyConfig.apiKeyExpirationDays;
-        const today = new Date();
-        const expireDate = new Date(today);
-
-        authConfig.defaultAuthentication.apiKeyConfig.apiKeyExpirationDateTime = expireDate.setDate(expireDate.getDate() + days);
-      }
     }
 
     this.context.amplify.updateamplifyMetaAfterResourceAdd(
@@ -162,8 +154,8 @@ class CfnApiArtifactHandler implements ApiArtifactHandler {
     providerPlugin: provider,
     output: {
       authConfig,
+      globalSandboxModeConfig,
     },
-    globalSandboxModeConfig,
   });
 
   private extractAuthConfig = (config: AppSyncServiceConfiguration) => ({
