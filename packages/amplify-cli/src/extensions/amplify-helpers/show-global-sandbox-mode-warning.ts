@@ -1,14 +1,19 @@
 import chalk from 'chalk';
 import { stateManager } from 'amplify-cli-core';
 
-export function showGlobalSandboxModeWarning(context): void {
-  const apiConfig = stateManager.getBackendConfig()['api'];
+function getAppSyncApi(apiConfig: any): any {
   let appSyncApi;
 
   Object.keys(apiConfig).forEach(k => {
     if (apiConfig[k]['service'] === 'AppSync') appSyncApi = apiConfig[k];
   });
 
+  return appSyncApi;
+}
+
+export function showGlobalSandboxModeWarning(context): void {
+  const apiConfig = stateManager.getBackendConfig()['api'];
+  const appSyncApi = getAppSyncApi(apiConfig);
   const globalSandboxModeConfig = appSyncApi.globalSandboxModeConfig || {};
   const currEnvName = context.amplify.getEnvInfo().envName;
   const apiKeyConfig = appSyncApi.output.authConfig.defaultAuthentication.apiKeyConfig;
@@ -18,10 +23,11 @@ export function showGlobalSandboxModeWarning(context): void {
 
   if (sandboxEnabledEnv) {
     context.print.info(`
-\n⚠️  WARNING: ${chalk.green('"type AMPLIFY_GLOBAL @allow_public_data_access_with_api_key"')} in your GraphQL schema
+⚠️  WARNING: ${chalk.green('"type AMPLIFY_GLOBAL @allow_public_data_access_with_api_key"')} in your GraphQL schema
 allows public create, read, update, and delete access to all models via API Key. This
-should only be used for testing purposes. API Key expiration date is: ${expirationDate.toUTCString()}
+should only be used for testing purposes. API Key expiration date is: ${expirationDate.toLocaleDateString()}
 
-To configure PRODUCTION-READY authorization rules, review: https://docs.amplify.aws/cli/graphql-transformer/auth`);
+To configure PRODUCTION-READY authorization rules, review: https://docs.amplify.aws/cli/graphql-transformer/auth
+`);
   }
 }

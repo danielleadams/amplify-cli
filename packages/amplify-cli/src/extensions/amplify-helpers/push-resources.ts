@@ -4,6 +4,7 @@ import { onCategoryOutputsChange } from './on-category-outputs-change';
 import { initializeEnv } from '../../initialize-env';
 import { getProviderPlugins } from './get-provider-plugins';
 import { getEnvInfo } from './get-env-info';
+import { showGlobalSandboxModeWarning } from './show-global-sandbox-mode-warning';
 import { EnvironmentDoesNotExistError, exitOnNextTick, stateManager, $TSAny, $TSContext } from 'amplify-cli-core';
 
 export async function pushResources(
@@ -57,6 +58,8 @@ export async function pushResources(
 
     return context;
   }
+
+  showGlobalSandboxModeWarning(context);
 
   let continueToPush = context.exeInfo && context.exeInfo.inputParams && context.exeInfo.inputParams.yes;
 
