@@ -1,15 +1,15 @@
 import chalk from 'chalk';
-import { stateManager } from 'amplify-cli-core';
+import { stateManager, $TSContext } from 'amplify-cli-core';
 
 function getAppSyncApi(): any {
-  const apiConfig = stateManager.getBackendConfig()?.api;
+  const apiConfig = stateManager.getMeta()?.api;
   let appSyncApi;
 
   Object.keys(apiConfig).forEach(k => {
     if (apiConfig[k]['service'] === 'AppSync') appSyncApi = apiConfig[k];
   });
 
-  return appSyncApi;
+  return appSyncApi || {};
 }
 
 function getApiKeyConfig(appSyncApi: any): any {
@@ -23,17 +23,23 @@ function getApiKeyConfig(appSyncApi: any): any {
     if (authProvider.authenticationType === 'API_KEY') apiKeyConfig = authProvider;
   });
 
-  return apiKeyConfig;
+  return apiKeyConfig || {};
 }
 
-export function showGlobalSandboxModeWarning(context): void {
+export function globalSandboxModeEnabled(context: $TSContext): boolean {
   const appSyncApi = getAppSyncApi();
-  const apiKeyConfig = getApiKeyConfig(appSyncApi);
   const currEnvName = context.amplify.getEnvInfo().envName;
-  const globalSandboxModeConfig = appSyncApi.globalSandboxModeConfig || {};
+  const { globalSandboxModeConfig } = appSyncApi.output || {};
+
+  return globalSandboxModeConfig[currEnvName]?.enabled;
+}
+
+export function showGlobalSandboxModeWarning(context: $TSContext): void {
+  const appSyncApi = getAppSyncApi();
+  const apiKeyConfig = getApiKeyConfig(appSyncApi) || {};
   const expirationDate = new Date(apiKeyConfig?.apiKeyExpirationDate);
 
-  if (apiKeyConfig && globalSandboxModeConfig[currEnvName]?.enabled) {
+  if (apiKeyConfig && globalSandboxModeEnabled(context)) {
     context.print.info(`
 ⚠️  WARNING: ${chalk.green('"type AMPLIFY_GLOBAL @allow_public_data_access_with_api_key"')} in your GraphQL schema
 allows public create, read, update, and delete access to all models via API Key. This

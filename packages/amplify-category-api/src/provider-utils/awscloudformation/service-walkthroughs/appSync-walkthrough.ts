@@ -605,7 +605,7 @@ async function askUserPoolQuestions(context) {
   };
 }
 
-async function askApiKeyQuestions() {
+export async function askApiKeyQuestions() {
   const apiKeyQuestions = [
     {
       type: 'input',
@@ -624,9 +624,8 @@ async function askApiKeyQuestions() {
   ];
 
   const apiKeyConfig = await inquirer.prompt(apiKeyQuestions);
-  const { apiKeyExpirationDays } = apiKeyConfig;
-  // @ts-ignore
-  apiKeyConfig.apiKeyExpirationDate = Expiration.after(Duration.days(apiKeyExpirationDays)).date;
+  const apiKeyExpirationDaysNum = Number(apiKeyConfig.apiKeyExpirationDays);
+  apiKeyConfig.apiKeyExpirationDate = Expiration.after(Duration.days(apiKeyExpirationDaysNum)).date;
 
   return {
     authenticationType: 'API_KEY',

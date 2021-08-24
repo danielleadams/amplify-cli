@@ -4,8 +4,10 @@ import { onCategoryOutputsChange } from './on-category-outputs-change';
 import { initializeEnv } from '../../initialize-env';
 import { getProviderPlugins } from './get-provider-plugins';
 import { getEnvInfo } from './get-env-info';
-import { showGlobalSandboxModeWarning } from './show-global-sandbox-mode-warning';
+import { globalSandboxModeEnabled, showGlobalSandboxModeWarning } from './show-global-sandbox-mode-warning';
+import { apiKeyIsActive, hasApiKey } from './api-key';
 import { EnvironmentDoesNotExistError, exitOnNextTick, stateManager, $TSAny, $TSContext } from 'amplify-cli-core';
+import { addApiKey } from 'amplify-category-api';
 
 export async function pushResources(
   context: $TSContext,
@@ -59,7 +61,10 @@ export async function pushResources(
     return context;
   }
 
-  showGlobalSandboxModeWarning(context);
+  if (globalSandboxModeEnabled(context)) {
+    if (!apiKeyIsActive() || !hasApiKey()) await addApiKey(context);
+    else showGlobalSandboxModeWarning(context);
+  }
 
   let continueToPush = context.exeInfo && context.exeInfo.inputParams && context.exeInfo.inputParams.yes;
 
