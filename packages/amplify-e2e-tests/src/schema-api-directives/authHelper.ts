@@ -100,18 +100,28 @@ export function getConfiguredAppsyncClientAPIKeyAuth(url: string, region: string
   });
 }
 
-export function getConfiguredAppsyncClientIAMAuth(url: string, region: string): any {
+export function getConfiguredAppsyncClientIAMAuth(url: string, region: string, credentials?: any): any {
+  if (credentials) {
+    credentials = {
+      accessKeyId: credentials.accessKeyId,
+      secretAccessKey: credentials.secretAccessKey,
+      sessionToken: credentials.sessionToken,
+    };
+  } else {
+    credentials = {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      sessionToken: process.env.AWS_SESSION_TOKEN,
+    };
+  }
+
   return new AWSAppSyncClient({
     url,
     region,
     disableOffline: true,
     auth: {
       type: AUTH_TYPE.AWS_IAM,
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-        sessionToken: process.env.AWS_SESSION_TOKEN,
-      },
+      credentials,
     },
   });
 }
@@ -164,6 +174,7 @@ export async function authenticateUser(username: string, tempPassword: string, p
     const { requiredAttributes } = signinResult.challengeParam; // the array of required attributes, e.g [‘email’, ‘phone_number’]
     await Auth.completeNewPassword(signinResult, password, requiredAttributes);
   }
+  return signinResult;
 }
 
 export function getUserPoolIssUrl(projectDir: string) {
