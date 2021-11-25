@@ -55,7 +55,7 @@ const schemaDirName = 'schema';
 const ROOT_APPSYNC_S3_KEY = 'amplify-appsync-files';
 const s3ServiceName = 'S3';
 
-export function searchablePushChecks(context, map, apiName): void {
+export async function searchablePushChecks(context, map, apiName): Promise<void> {
   const searchableModelTypes = Object.keys(map).filter(type => map[type].includes('searchable') && map[type].includes('model'));
   if (searchableModelTypes.length) {
     const currEnv = context.amplify.getEnvInfo().envName;
@@ -66,7 +66,7 @@ export function searchablePushChecks(context, map, apiName): void {
       't2.small.elasticsearch',
     );
     if (instanceType === 't2.small.elasticsearch' || instanceType === 't3.small.elasticsearch') {
-      const version = getTransformerVersion(context);
+      const version = await getTransformerVersion(context);
       const docLink = getGraphQLTransformerOpenSearchProductionDocLink(version)
       printer.warn(
         `Your instance type for OpenSearch is ${instanceType}, you may experience performance issues or data loss. Consider reconfiguring with the instructions here ${docLink}`,
@@ -75,10 +75,10 @@ export function searchablePushChecks(context, map, apiName): void {
   }
 }
 
-function warnOnAuth(context, map) {
+async function warnOnAuth(context, map) {
   const unAuthModelTypes = Object.keys(map).filter(type => !map[type].includes('auth') && map[type].includes('model'));
   if (unAuthModelTypes.length) {
-    const transformerVersion = getTransformerVersion(context);
+    const transformerVersion = await getTransformerVersion(context);
     const docLink = getGraphQLTransformerAuthDocLink(transformerVersion);
     context.print.warning("\nThe following types do not have '@auth' enabled. Consider using @auth with @model");
     context.print.warning(unAuthModelTypes.map(type => `\t - ${type}`).join('\n'));
@@ -189,7 +189,7 @@ function getTransformerFactory(context, resourceDir, authConfig?) {
  * @TODO Include a map of versions to keep track
  */
 async function transformerVersionCheck(context, resourceDir, cloudBackendDirectory, updatedResources, usedDirectives) {
-  const transformerVersion = getTransformerVersion(context);
+  const transformerVersion = await getTransformerVersion(context);
   const authDocLink = getGraphQLTransformerAuthSubscriptionsDocLink(transformerVersion);
   const searchable = getGraphQLTransformerOpenSearchProductionDocLink(transformerVersion);
   const versionChangeMessage =
@@ -322,7 +322,7 @@ async function migrateProject(context, options) {
 }
 
 export async function transformGraphQLSchema(context, options) {
-  const transformerVersion = getTransformerVersion(context);
+  const transformerVersion = await getTransformerVersion(context);
   if (transformerVersion === 2) {
     return transformGraphQLSchemaV6(context, options);
   }
@@ -494,8 +494,8 @@ export async function transformGraphQLSchema(context, options) {
 
   // Check for common errors
   const directiveMap = collectDirectivesByTypeNames(project.schema);
-  warnOnAuth(context, directiveMap.types);
-  searchablePushChecks(context, directiveMap.types, parameters[ResourceConstants.PARAMETERS.AppSyncApiName]);
+  await warnOnAuth(context, directiveMap.types);
+  await searchablePushChecks(context, directiveMap.types, parameters[ResourceConstants.PARAMETERS.AppSyncApiName]);
 
   await transformerVersionCheck(context, resourceDir, previouslyDeployedBackendDir, resourcesToBeUpdated, directiveMap.directives);
 
@@ -574,7 +574,7 @@ async function getPreviousDeploymentRootKey(previouslyDeployedBackendDir) {
 // }
 
 export async function getDirectiveDefinitions(context, resourceDir) {
-  const transformerVersion = getTransformerVersion(context);
+  const transformerVersion = await getTransformerVersion(context);
   if (transformerVersion === 2) {
     return getDirectiveDefinitionsV6(context, resourceDir);
   }
@@ -650,8 +650,8 @@ async function getBucketName(context: $TSContext, s3ResourceName: string) {
   return bucketName;
 }
 
-export function getTransformerVersion(context) {
-  migrateToTransformerVersionFeatureFlag(context);
+export async function getTransformerVersion(context) {
+  await migrateToTransformerVersionFeatureFlag(context);
 
   const transformerVersion = FeatureFlags.getNumber('graphQLTransformer.transformerVersion');
   if (transformerVersion !== 1 && transformerVersion !== 2) {
