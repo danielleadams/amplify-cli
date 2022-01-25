@@ -4,6 +4,7 @@ import { IndexTransformer } from '@aws-amplify/graphql-index-transformer';
 import { GraphQLTransform } from '@aws-amplify/graphql-transformer-core';
 import { ResourceConstants } from 'graphql-transformer-common';
 import { AppSyncAuthConfiguration } from '@aws-amplify/graphql-transformer-interfaces';
+import { featureFlags } from './test-helpers';
 
 test('happy case with static groups', () => {
   const authConfig: AppSyncAuthConfiguration = {
@@ -22,6 +23,7 @@ test('happy case with static groups', () => {
   const transformer = new GraphQLTransform({
     authConfig,
     transformers: [new ModelTransformer(), new AuthTransformer()],
+    featureFlags,
   });
   const out = transformer.transform(validSchema);
   expect(out).toBeDefined();
@@ -49,6 +51,7 @@ test('happy case with dynamic groups', () => {
   const transformer = new GraphQLTransform({
     authConfig,
     transformers: [new ModelTransformer(), new AuthTransformer()],
+    featureFlags,
   });
   const out = transformer.transform(validSchema);
 
@@ -93,6 +96,7 @@ test(`'groups' @auth with dynamic groups and custom claim on index query`, () =>
   const transformer = new GraphQLTransform({
     authConfig,
     transformers: [new ModelTransformer(), new AuthTransformer(), new IndexTransformer()],
+    featureFlags,
   });
   const out = transformer.transform(validSchema);
 
@@ -130,6 +134,7 @@ test('validation on @auth on a non-@model type', () => {
   const transformer = new GraphQLTransform({
     authConfig,
     transformers: [new ModelTransformer(), new AuthTransformer()],
+    featureFlags,
   });
   expect(() => transformer.transform(invalidSchema)).toThrowError('Types annotated with @auth must also be annotated with @model.');
 });
@@ -152,6 +157,7 @@ test('empty groups list', () => {
   const transformer = new GraphQLTransform({
     authConfig,
     transformers: [new ModelTransformer(), new AuthTransformer()],
+    featureFlags,
   });
   expect(() => transformer.transform(invalidSchema)).toThrowError('@auth rules using groups cannot have an empty list');
 });
@@ -174,6 +180,7 @@ test('no @auth rules list', () => {
   const transformer = new GraphQLTransform({
     authConfig,
     transformers: [new ModelTransformer(), new AuthTransformer()],
+    featureFlags,
   });
   expect(() => transformer.transform(invalidSchema)).toThrowError('@auth on Post does not have any auth rules.');
 });
@@ -196,6 +203,7 @@ test('dynamic group auth generates authorized fields list correctly', () => {
   const transformer = new GraphQLTransform({
     authConfig,
     transformers: [new ModelTransformer(), new AuthTransformer()],
+    featureFlags,
   });
   const result = transformer.transform(schema);
   // ideally this could be a more specific test rather than a big snapshot test

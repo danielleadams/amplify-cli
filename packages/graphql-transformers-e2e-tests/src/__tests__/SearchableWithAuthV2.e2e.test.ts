@@ -32,9 +32,21 @@ if (anyAWS && anyAWS.config && anyAWS.config.credentials) {
   delete anyAWS.config.credentials;
 }
 
+const featureFlags = {
+  getBoolean: jest.fn().mockImplementation((name, defaultValue) => {
+    if (name === 'useSubForDefaultIdentityClaim') {
+      return true;
+    }
+    return defaultValue;
+  }),
+  getNumber: jest.fn(),
+  getObject: jest.fn(),
+  getString: jest.fn(),
+};
+
 // tslint:disable: no-magic-numbers
 jest.setTimeout(60000 * 60);
-const AWS_REGION = 'us-west-2';
+const AWS_REGION = 'us-east-2';
 
 const cf = new CloudFormationClient(AWS_REGION);
 const customS3Client = new S3Client(AWS_REGION);
@@ -54,6 +66,7 @@ let USER_POOL_ID: string;
 let IDENTITY_POOL_ID: string;
 let GRAPHQL_ENDPOINT: string;
 let API_KEY: string;
+let idToken: any, idToken2: any, idToken3: any, idToken4: any;
 
 /**
  * Client 1 is logged in and has no group memberships.
@@ -141,7 +154,7 @@ beforeAll(async () => {
     downs: Int
     percentageUp: Float
     isPublished: Boolean
-    createdAt: AWSDateTime 
+    createdAt: AWSDateTime
     updatedAt: AWSDateTime
     owner: String
     groupsField: String
@@ -168,6 +181,7 @@ beforeAll(async () => {
       ],
     },
     transformers: [new ModelTransformer(), new SearchableModelTransformer(), new AuthTransformer()],
+    featureFlags,
   });
   const userPoolResponse = await createUserPool(cognitoClient, `UserPool${STACK_NAME}`);
   USER_POOL_ID = userPoolResponse.UserPool.Id;
@@ -226,50 +240,50 @@ beforeAll(async () => {
     await addUserToGroup(ADMIN_GROUP_NAME, USERNAME2, USER_POOL_ID);
 
     const authResAfterGroup: any = await authenticateUser(USERNAME1, TMP_PASSWORD, REAL_PASSWORD);
-    const idToken = authResAfterGroup.getIdToken().getJwtToken();
+    idToken = authResAfterGroup.getIdToken();
     GRAPHQL_CLIENT_1 = new AWSAppSyncClient({
       url: GRAPHQL_ENDPOINT,
       region: AWS_REGION,
       disableOffline: true,
       auth: {
         type: AUTH_TYPE.AMAZON_COGNITO_USER_POOLS,
-        jwtToken: () => idToken,
+        jwtToken: () => idToken.getJwtToken(),
       },
     });
 
     const authRes2AfterGroup: any = await authenticateUser(USERNAME2, TMP_PASSWORD, REAL_PASSWORD);
-    const idToken2 = authRes2AfterGroup.getIdToken().getJwtToken();
+    idToken2 = authRes2AfterGroup.getIdToken();
     GRAPHQL_CLIENT_2 = new AWSAppSyncClient({
       url: GRAPHQL_ENDPOINT,
       region: AWS_REGION,
       disableOffline: true,
       auth: {
         type: AUTH_TYPE.AMAZON_COGNITO_USER_POOLS,
-        jwtToken: () => idToken2,
+        jwtToken: () => idToken2.getJwtToken(),
       },
     });
 
     const authRes3: any = await authenticateUser(USERNAME3, TMP_PASSWORD, REAL_PASSWORD);
-    const idToken3 = authRes3.getIdToken().getJwtToken();
+    idToken3 = authRes3.getIdToken();
     GRAPHQL_CLIENT_3 = new AWSAppSyncClient({
       url: GRAPHQL_ENDPOINT,
       region: AWS_REGION,
       disableOffline: true,
       auth: {
         type: AUTH_TYPE.AMAZON_COGNITO_USER_POOLS,
-        jwtToken: () => idToken3,
+        jwtToken: () => idToken3.getJwtToken(),
       },
     });
 
     const authRes4: any = await authenticateUser(USERNAME4, TMP_PASSWORD, REAL_PASSWORD);
-    const idToken4 = authRes4.getIdToken().getJwtToken();
+    idToken4 = authRes4.getIdToken();
     GRAPHQL_CLIENT_4 = new AWSAppSyncClient({
       url: GRAPHQL_ENDPOINT,
       region: AWS_REGION,
       disableOffline: true,
       auth: {
         type: AUTH_TYPE.AMAZON_COGNITO_USER_POOLS,
-        jwtToken: () => idToken4,
+        jwtToken: () => idToken4.getJwtToken(),
       },
     });
 
@@ -376,7 +390,7 @@ test('test Comments as user in writer group', async () => {
       expect.objectContaining({
         id: expect.any(String),
         content: 'ownerContent',
-        owner: USERNAME1,
+        owner: idToken.payload.sub,
       }),
       expect.objectContaining({
         id: expect.any(String),
@@ -667,11 +681,11 @@ test('test that admin can run aggregate query on protected field', async () => {
       expect.arrayContaining([
         expect.objectContaining({
           doc_count: 2,
-          key: `${USERNAME1}secret`,
+          key: `${idToken.payload.sub}secret`,
         }),
         expect.objectContaining({
           doc_count: 2,
-          key: `${USERNAME4}secret`,
+          key: `${idToken4.payload.sub}secret`,
         }),
       ]),
     );
@@ -710,11 +724,11 @@ test('test that member in writer group has writer group auth when running aggreg
       expect.arrayContaining([
         expect.objectContaining({
           doc_count: 2,
-          key: `${USERNAME1}secret`,
+          key: `${idToken.payload.sub}secret`,
         }),
         expect.objectContaining({
           doc_count: 1,
-          key: `${USERNAME4}secret`,
+          key: `${idToken4.payload.sub}secret`,
         }),
       ]),
     );
@@ -893,26 +907,32 @@ const createEntries = async () => {
   }
   await createBlog(GRAPHQL_CLIENT_2, {
     groupsField: WRITER_GROUP_NAME,
-    owner: USERNAME1,
-    secret: `${USERNAME1}secret`,
+    owner: idToken.payload.sub,
+    secret: `${idToken.payload.sub}secret`,
     ups: 10,
     title: 'cooking',
   });
   await createBlog(GRAPHQL_CLIENT_2, {
     groupsField: WRITER_GROUP_NAME,
-    owner: USERNAME1,
-    secret: `${USERNAME1}secret`,
+    owner: idToken.payload.sub,
+    secret: `${idToken.payload.sub}secret`,
     ups: 10,
     title: 'cooking',
   });
   await createBlog(GRAPHQL_CLIENT_2, {
     groupsField: WRITER_GROUP_NAME,
-    owner: USERNAME4,
-    secret: `${USERNAME4}secret`,
+    owner: idToken4.payload.sub,
+    secret: `${idToken4.payload.sub}secret`,
     ups: 25,
     title: 'golfing',
   });
-  await createBlog(GRAPHQL_CLIENT_2, { groupsField: 'editor', owner: USERNAME4, secret: `${USERNAME4}secret`, ups: 10, title: 'cooking' });
+  await createBlog(GRAPHQL_CLIENT_2, {
+    groupsField: 'editor',
+    owner: idToken4.payload.sub,
+    secret: `${idToken4.payload.sub}secret`,
+    ups: 10,
+    title: 'cooking',
+  });
   // Waiting for the ES Cluster + Streaming Lambda infra to be setup
   await cf.wait(120, () => Promise.resolve());
 };

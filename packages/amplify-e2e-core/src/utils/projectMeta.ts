@@ -16,6 +16,10 @@ function getAmplifyConfigIOSPath(projRoot: string): string {
   return path.join(projRoot, 'amplifyconfiguration.json');
 }
 
+function getAmplifyConfigFlutterPath(projRoot: string): string {
+  return path.join(projRoot, 'lib', 'amplifyconfiguration.dart');
+}
+
 function getAmplifyDirPath(projRoot: string): string {
   return path.join(projRoot, 'amplify');
 }
@@ -107,6 +111,12 @@ function getAmplifyIOSConfig(projectRoot: string): any {
   return JSONUtilities.readJson(configPath);
 }
 
+function getAmplifyFlutterConfig(projectRoot: string): any {
+  const configPath = getAmplifyConfigFlutterPath(projectRoot);
+  const dartFile = fs.readFileSync(configPath);
+  return JSON.parse(dartFile.toString().split(/'''/)[1]);
+}
+
 function getDeploymentSecrets(): any {
   const deploymentSecretsPath: string = path.join(os.homedir(), '.aws', 'amplify', 'deployment-secrets.json');
   return (
@@ -166,9 +176,11 @@ export {
   getAwsAndroidConfig,
   getAwsIOSConfig,
   getAmplifyIOSConfig,
+  getAmplifyFlutterConfig,
   getAWSConfigAndroidPath,
   getAmplifyConfigAndroidPath,
   getAmplifyConfigIOSPath,
+  getAmplifyConfigFlutterPath,
   getAWSConfigIOSPath,
   getDeploymentSecrets,
   isDeploymentSecretForEnvExists,

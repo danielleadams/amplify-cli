@@ -2,9 +2,9 @@ import { nspawn as spawn, getCLIPath, getSocialProviders, isCI } from 'amplify-e
 
 export function addEnvironment(cwd: string, settings: { envName: string; numLayers?: number }): Promise<void> {
   return new Promise((resolve, reject) => {
-    const chain = spawn(getCLIPath(), ['env', 'add'], { cwd, stripColors: true })
-      .wait('Enter a name for the environment')
-      .sendLine(settings.envName)
+    const chain = spawn(getCLIPath(), ['env', 'add', settings.envName], { cwd, stripColors: true })
+      .wait('Choose your default editor:')
+      .sendCarriageReturn()
       .wait('Select the authentication method you want to use:')
       .sendCarriageReturn()
       .wait('Please choose the profile you want to use')

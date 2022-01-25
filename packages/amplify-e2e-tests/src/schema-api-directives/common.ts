@@ -323,6 +323,7 @@ function checkError(received: any, expected: any): boolean {
 }
 
 const MAX_DEPTH = 50;
+const UUID_REGEX = /[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}/;
 function runCompare(queue: { received: any; expected: any; depth: number }[]): boolean {
   let result = true;
 
@@ -349,6 +350,8 @@ function runCompare(queue: { received: any; expected: any; depth: number }[]): b
       }
     } else if (itemToCompare.expected === '<check-defined>') {
       result = itemToCompare.received !== null && itemToCompare.received !== undefined;
+    } else if (itemToCompare.expected === '<uuid>') {
+      result = itemToCompare.received.match(UUID_REGEX);
     } else {
       result = itemToCompare.received === itemToCompare.expected;
     }

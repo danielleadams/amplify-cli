@@ -10,6 +10,7 @@ export * from './definitions';
 export * from './validations';
 export * from './schema';
 export * from './iam';
+export * from './warnings';
 
 export const splitRoles = (roles: Array<RoleDefinition>): RolesByProvider => {
   return {

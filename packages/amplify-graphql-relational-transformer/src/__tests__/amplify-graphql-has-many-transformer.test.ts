@@ -3,6 +3,7 @@ import { ModelTransformer } from '@aws-amplify/graphql-model-transformer';
 import { ConflictHandlerType, GraphQLTransform, validateModelSchema } from '@aws-amplify/graphql-transformer-core';
 import { Kind, parse } from 'graphql';
 import { BelongsToTransformer, HasManyTransformer, HasOneTransformer } from '..';
+import { featureFlags } from './test-helpers';
 
 test('fails if used as a has one relation', () => {
   const inputSchema = `
@@ -273,6 +274,7 @@ test('bidirectional has many query case', () => {
     }`;
   const transformer = new GraphQLTransform({
     transformers: [new ModelTransformer(), new IndexTransformer(), new BelongsToTransformer(), new HasManyTransformer()],
+    featureFlags,
   });
 
   const out = transformer.transform(inputSchema);

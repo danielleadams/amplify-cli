@@ -3,13 +3,9 @@ import { ModelTransformer } from '@aws-amplify/graphql-model-transformer';
 import { SearchableModelTransformer } from '@aws-amplify/graphql-searchable-transformer';
 import { GraphQLTransform } from '@aws-amplify/graphql-transformer-core';
 import { AppSyncAuthConfiguration } from '@aws-amplify/graphql-transformer-interfaces';
-import { DocumentNode, ObjectTypeDefinitionNode, Kind, FieldDefinitionNode, parse, InputValueDefinitionNode } from 'graphql';
+import { ObjectTypeDefinitionNode, FieldDefinitionNode, parse } from 'graphql';
+import { featureFlags, getObjectType } from './test-helpers';
 
-const getObjectType = (doc: DocumentNode, type: string): ObjectTypeDefinitionNode | undefined => {
-  return doc.definitions.find(def => def.kind === Kind.OBJECT_TYPE_DEFINITION && def.name.value === type) as
-    | ObjectTypeDefinitionNode
-    | undefined;
-};
 const expectMultiple = (fieldOrType: ObjectTypeDefinitionNode | FieldDefinitionNode, directiveNames: string[]) => {
   expect(directiveNames).toBeDefined();
   expect(directiveNames).toHaveLength(directiveNames.length);
@@ -47,12 +43,13 @@ test('auth logic is enabled on owner/static rules in es request', () => {
   const transformer = new GraphQLTransform({
     authConfig,
     transformers: [new ModelTransformer(), new SearchableModelTransformer(), new AuthTransformer()],
+    featureFlags,
   });
   const out = transformer.transform(validSchema);
   // expect response resolver to contain auth logic for owner rule
   expect(out).toBeDefined();
   expect(out.resolvers['Query.searchComments.auth.1.req.vtl']).toContain(
-    '"terms":       [$util.defaultIfNull($ctx.identity.claims.get("username"), $util.defaultIfNull($ctx.identity.claims.get("cognito:username"), "___xamznone____"))],',
+    '"terms":       [$util.defaultIfNull($ctx.identity.claims.get("sub"), "___xamznone____")],',
   );
   // expect response resolver to contain auth logic for group rule
   expect(out.resolvers['Query.searchComments.auth.1.req.vtl']).toContain(
@@ -94,6 +91,7 @@ test('auth logic is enabled for iam/apiKey auth rules', () => {
   const transformer = new GraphQLTransform({
     authConfig,
     transformers: [new ModelTransformer(), new SearchableModelTransformer(), new AuthTransformer()],
+    featureFlags,
   });
   const out = transformer.transform(validSchema);
   expect(out).toBeDefined();

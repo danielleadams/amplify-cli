@@ -4,8 +4,14 @@ import { ModelTransformer } from '@aws-amplify/graphql-model-transformer';
 import { PrimaryKeyTransformer, IndexTransformer } from '@aws-amplify/graphql-index-transformer';
 import { GraphQLTransform } from '@aws-amplify/graphql-transformer-core';
 import { ResourceConstants } from 'graphql-transformer-common';
-import { getField, getObjectType } from './test-helpers';
+import { featureFlags, getField, getObjectType } from './test-helpers';
 import { AppSyncAuthConfiguration } from '@aws-amplify/graphql-transformer-interfaces';
+
+jest.mock('amplify-prompts', () => ({
+  printer: {
+    warn: jest.fn(),
+  },
+}));
 
 test('auth transformer validation happy case', () => {
   const authConfig: AppSyncAuthConfiguration = {
@@ -24,6 +30,7 @@ test('auth transformer validation happy case', () => {
   const transformer = new GraphQLTransform({
     authConfig,
     transformers: [new ModelTransformer(), new AuthTransformer()],
+    featureFlags,
   });
   const out = transformer.transform(validSchema);
   expect(out).toBeDefined();
@@ -50,6 +57,7 @@ test('ownerfield where the field is a list', () => {
   const transformer = new GraphQLTransform({
     authConfig,
     transformers: [new ModelTransformer(), new AuthTransformer()],
+    featureFlags,
   });
   const out = transformer.transform(validSchema);
   expect(out).toBeDefined();
@@ -81,6 +89,7 @@ test('ownerfield with subscriptions', () => {
   const transformer = new GraphQLTransform({
     authConfig,
     transformers: [new ModelTransformer(), new AuthTransformer()],
+    featureFlags,
   });
   const out = transformer.transform(validSchema);
   expect(out).toBeDefined();
@@ -125,6 +134,7 @@ test('multiple owner rules with subscriptions', () => {
   const transformer = new GraphQLTransform({
     authConfig,
     transformers: [new ModelTransformer(), new AuthTransformer()],
+    featureFlags,
   });
   const out = transformer.transform(validSchema);
   expect(out).toBeDefined();
@@ -167,6 +177,7 @@ test('implicit owner fields get added to the type', () => {
   const transformer = new GraphQLTransform({
     authConfig,
     transformers: [new ModelTransformer(), new AuthTransformer()],
+    featureFlags,
   });
   const validSchema = `
   type Post @model
@@ -215,6 +226,7 @@ test('implicit owner fields from field level auth get added to the type', () => 
   const transformer = new GraphQLTransform({
     authConfig,
     transformers: [new ModelTransformer(), new AuthTransformer()],
+    featureFlags,
   });
   const out = transformer.transform(validSchema);
   expect(out).toBeDefined();
@@ -235,7 +247,7 @@ test('test owner fields on primaryKey create authfilter for scan operation', () 
   const validSchema = `
   type FamilyMember @model @auth(rules: [
     {allow: owner, ownerField: "parent", identityClaim: "sub", operations: [read] },
-    {allow: owner, ownerField: "child", identityClaim: "sub", operations: [read] } 
+    {allow: owner, ownerField: "child", identityClaim: "sub", operations: [read] }
   ]){
     parent: ID! @primaryKey(sortKeyFields: ["child"]) @index(name: "byParent", queryField: "byParent")
     child: ID! @index(name: "byChild", queryField: "byChild")
@@ -279,4 +291,124 @@ test('test owner fields on primaryKey create authfilter for scan operation', () 
   expect((childOwnerField as any).type.type.name.value).toEqual('ID');
 
   expect(out.resolvers['Query.listFamilyMembers.auth.1.req.vtl']).toMatchSnapshot();
+});
+
+describe('with feature flag useSubForDefaultIdentityClaim disabled', () => {
+  test('implicit (default) identity claim', () => {
+    const authConfig: AppSyncAuthConfiguration = {
+      defaultAuthentication: {
+        authenticationType: 'AMAZON_COGNITO_USER_POOLS',
+      },
+      additionalAuthenticationProviders: [],
+    };
+    const validSchema = `
+      type Post @model @auth(rules: [{allow: owner}]) {
+        id: ID!
+        title: String!
+        createdAt: String
+        updatedAt: String
+      }`;
+    const transformer = new GraphQLTransform({
+      authConfig,
+      transformers: [new ModelTransformer(), new AuthTransformer()],
+      featureFlags: {
+        getBoolean: jest.fn().mockImplementation((name, defaultValue) => {
+          if (name === 'useSubForDefaultIdentityClaim') {
+            return false;
+          }
+          return defaultValue;
+        }),
+        getString: jest.fn(),
+        getNumber: jest.fn(),
+        getObject: jest.fn(),
+      },
+    });
+    const out = transformer.transform(validSchema);
+    expect(out).toBeDefined();
+
+    expect(out.resolvers['Mutation.createPost.auth.1.req.vtl']).toContain(
+      '#set( $ownerClaim0 = $util.defaultIfNull($ctx.identity.claims.get("username"), $util.defaultIfNull($ctx.identity.claims.get("cognito:username"), "___xamznone____")) )',
+    );
+
+    expect(out.resolvers['Mutation.deletePost.auth.1.res.vtl']).toContain(
+      '#set( $ownerClaim0 = $util.defaultIfNull($ctx.identity.claims.get("username"), $util.defaultIfNull($ctx.identity.claims.get("cognito:username"), "___xamznone____")) )',
+    );
+
+    expect(out.resolvers['Mutation.updatePost.auth.1.res.vtl']).toContain(
+      '#set( $ownerClaim0 = $util.defaultIfNull($ctx.identity.claims.get("username"), $util.defaultIfNull($ctx.identity.claims.get("cognito:username"), "___xamznone____")) )',
+    );
+
+    expect(out.resolvers['Query.getPost.auth.1.req.vtl']).toContain(
+      '#set( $role0 = $util.defaultIfNull($ctx.identity.claims.get("username"), $util.defaultIfNull($ctx.identity.claims.get("cognito:username"), "___xamznone____")) )',
+    );
+
+    expect(out.resolvers['Query.listPosts.auth.1.req.vtl']).toContain(
+      '#set( $role0 = $util.defaultIfNull($ctx.identity.claims.get("username"), $util.defaultIfNull($ctx.identity.claims.get("cognito:username"), "___xamznone____")) )',
+    );
+
+    expect(out.resolvers['Subscription.onCreatePost.auth.1.req.vtl']).toContain(
+      '#set( $ownerClaim0 = $util.defaultIfNull($ctx.identity.claims.get("username"), $util.defaultIfNull($ctx.identity.claims.get("cognito:username"), "___xamznone____")) )',
+    );
+
+    expect(out.resolvers['Subscription.onDeletePost.auth.1.req.vtl']).toContain(
+      '#set( $ownerClaim0 = $util.defaultIfNull($ctx.identity.claims.get("username"), $util.defaultIfNull($ctx.identity.claims.get("cognito:username"), "___xamznone____")) )',
+    );
+
+    expect(out.resolvers['Subscription.onUpdatePost.auth.1.req.vtl']).toContain(
+      '#set( $ownerClaim0 = $util.defaultIfNull($ctx.identity.claims.get("username"), $util.defaultIfNull($ctx.identity.claims.get("cognito:username"), "___xamznone____")) )',
+    );
+  });
+
+  test('test owner fields on primaryKey create authfilter for scan operation', () => {
+    const validSchema = `
+    type FamilyMember @model @auth(rules: [
+      {allow: owner, ownerField: "parent", identityClaim: "sub", operations: [read] },
+      {allow: owner, ownerField: "child", identityClaim: "sub", operations: [read] }
+    ]){
+      parent: ID! @primaryKey(sortKeyFields: ["child"]) @index(name: "byParent", queryField: "byParent")
+      child: ID! @index(name: "byChild", queryField: "byChild")
+      createdAt: AWSDateTime
+      updatedAt: AWSDateTime
+    }`;
+    const authConfig: AppSyncAuthConfiguration = {
+      defaultAuthentication: {
+        authenticationType: 'AMAZON_COGNITO_USER_POOLS',
+      },
+      additionalAuthenticationProviders: [],
+    };
+    const transformer = new GraphQLTransform({
+      authConfig,
+      featureFlags: {
+        getBoolean: jest.fn().mockImplementation((name, defaultValue) => {
+          if (name === 'secondaryKeyAsGSI') {
+            return true;
+          }
+          if (name === 'useSubForDefaultIdentityClaim') {
+            return false;
+          }
+          return defaultValue;
+        }),
+        getNumber: jest.fn(),
+        getObject: jest.fn(),
+        getString: jest.fn(),
+      },
+      transformers: [new ModelTransformer(), new PrimaryKeyTransformer(), new IndexTransformer(), new AuthTransformer()],
+    });
+    const out = transformer.transform(validSchema);
+    expect(out).toBeDefined();
+    const schema = parse(out.schema);
+    const familyMemberType = getObjectType(schema, 'FamilyMember');
+    expect(familyMemberType).toBeDefined();
+
+    // use double type as it's non-null
+    const parentOwnerField = getField(familyMemberType, 'parent');
+    expect(parentOwnerField).toBeDefined();
+    expect((parentOwnerField as any).type.type.name.value).toEqual('ID');
+
+    const childOwnerField = getField(familyMemberType, 'child');
+    expect(childOwnerField).toBeDefined();
+    expect((childOwnerField as any).type.type.name.value).toEqual('ID');
+
+    expect(out.resolvers['Query.listFamilyMembers.auth.1.req.vtl']).toMatchSnapshot();
+  });
 });

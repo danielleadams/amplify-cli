@@ -57,6 +57,7 @@ import {
   getPartitionKey,
   getRelationalPrimaryMap,
   getReadRolesForField,
+  showDefaultIdentityClaimWarning,
 } from './utils';
 import {
   DirectiveNode,
@@ -109,6 +110,8 @@ import { generateSandboxExpressionForField } from './resolvers/field';
 export class AuthTransformer extends TransformerAuthBase implements TransformerAuthProvider {
   private config: AuthTransformerConfig;
   private configuredAuthProviders: ConfiguredAuthProviders;
+  private useSubForDefaultIdentityClaim: boolean;
+  private rules: AuthRule[];
   // access control
   private roleMap: Map<string, RoleDefinition>;
   private authModelConfig: Map<string, AccessControlMatrix>;
@@ -137,12 +140,14 @@ export class AuthTransformer extends TransformerAuthBase implements TransformerA
     this.generateIAMPolicyforUnauthRole = false;
     this.generateIAMPolicyforAuthRole = false;
     this.authNonModelConfig = new Map();
+    this.rules = [];
   }
 
   before = (context: TransformerBeforeStepContextProvider): void => {
     // if there was no auth config in the props we add the authConfig from the context
     this.config.authConfig = this.config.authConfig ?? context.authConfig;
     this.configuredAuthProviders = getConfiguredAuthProviders(this.config);
+    this.useSubForDefaultIdentityClaim = context.featureFlags?.getBoolean('useSubForDefaultIdentityClaim');
   };
 
   object = (def: ObjectTypeDefinitionNode, directive: DirectiveNode, context: TransformerSchemaVisitStepContextProvider): void => {
@@ -158,6 +163,7 @@ export class AuthTransformer extends TransformerAuthBase implements TransformerA
     }
     const authDir = new DirectiveWrapper(directive);
     const rules: AuthRule[] = authDir.getArguments<{ rules: Array<AuthRule> }>({ rules: [] }).rules;
+    this.rules = rules;
     ensureAuthRuleDefaults(rules);
     // validate rules
     validateRules(rules, this.configuredAuthProviders, def.name.value);
@@ -176,6 +182,10 @@ export class AuthTransformer extends TransformerAuthBase implements TransformerA
     this.convertRulesToRoles(acm, rules, isJoinType);
     this.modelDirectiveConfig.set(typeName, getModelConfig(modelDirective, typeName, context.isProjectUsingDataStore()));
     this.authModelConfig.set(typeName, acm);
+  };
+
+  after = (context: TransformerContextProvider): void => {
+    showDefaultIdentityClaimWarning(context, this.rules);
   };
 
   field = (
@@ -856,7 +866,8 @@ Static group authorization should perform as expected.`,
               };
             } else if (rule.allow === 'owner') {
               const ownerField = rule.ownerField || DEFAULT_OWNER_FIELD;
-              const ownerClaim = rule.identityClaim || DEFAULT_IDENTITY_CLAIM;
+              const defaultIdentityClaim = this.useSubForDefaultIdentityClaim ? 'sub' : DEFAULT_IDENTITY_CLAIM;
+              const ownerClaim = rule.identityClaim || defaultIdentityClaim;
               roleName = `${rule.provider}:owner:${ownerField}:${ownerClaim}`;
               roleDefinition = {
                 provider: rule.provider,

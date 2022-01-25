@@ -5,6 +5,18 @@ import { AppSyncAuthConfiguration } from '@aws-amplify/graphql-transformer-inter
 import { AmplifyAppSyncSimulatorAuthenticationType, AppSyncGraphQLExecutionContext } from 'amplify-appsync-simulator';
 import { VelocityTemplateSimulator, AppSyncVTLContext, getGenericToken } from '../../velocity';
 
+const featureFlags = {
+  getBoolean: jest.fn().mockImplementation((name, defaultValue) => {
+    if (name === 'useSubForDefaultIdentityClaim') {
+      return false;
+    }
+    return defaultValue;
+  }),
+  getNumber: jest.fn(),
+  getObject: jest.fn(),
+  getString: jest.fn(),
+};
+
 // oidc needs claim values to know where to check in the token otherwise it will use cognito defaults precendence order below
 // - owner: 'username' -> 'cognito:username' -> default to null
 // - group: 'cognito:groups' -> default to null or empty list
@@ -37,6 +49,7 @@ describe('@model + @auth with oidc provider', () => {
     transformer = new GraphQLTransform({
       authConfig,
       transformers: [new ModelTransformer(), new AuthTransformer()],
+      featureFlags,
     });
     vtlTemplate = new VelocityTemplateSimulator({ authConfig });
   });
@@ -109,5 +122,87 @@ describe('@model + @auth with oidc provider', () => {
     expect(getRequestAsEditor.hadException).toEqual(false);
     const getRequestAsOwner = vtlTemplate.render(getRequestTemplate, { context: getCommentArgs, requestParameters: subIdUser });
     expect(getRequestAsOwner.hadException).toEqual(true);
+  });
+});
+
+describe('with sub feature flag enabled', () => {
+  const featureFlags = {
+    getBoolean: jest.fn().mockImplementation((name, defaultValue) => {
+      if (name === 'useSubForDefaultIdentityClaim') {
+        return true;
+      }
+      return defaultValue;
+    }),
+    getNumber: jest.fn(),
+    getObject: jest.fn(),
+    getString: jest.fn(),
+  };
+
+  describe('@model + @auth with oidc provider', () => {
+    let vtlTemplate: VelocityTemplateSimulator;
+    let transformer: GraphQLTransform;
+    const subIdUser: AppSyncGraphQLExecutionContext = {
+      requestAuthorizationMode: AmplifyAppSyncSimulatorAuthenticationType.OPENID_CONNECT,
+      jwt: getGenericToken('randomIdUser', 'random@user.com'),
+      headers: {},
+    };
+    const editorGroupMember: AppSyncGraphQLExecutionContext = {
+      requestAuthorizationMode: AmplifyAppSyncSimulatorAuthenticationType.OPENID_CONNECT,
+      jwt: getGenericToken('editorUser', 'editor0@user.com', ['Editor']),
+      headers: {},
+    };
+
+    beforeEach(() => {
+      const authConfig: AppSyncAuthConfiguration = {
+        defaultAuthentication: {
+          authenticationType: 'OPENID_CONNECT',
+          openIDConnectConfig: {
+            name: 'myOIDCProvider',
+            issuerUrl: 'https://some-oidc-provider/auth',
+            clientId: 'my-sample-client-id',
+          },
+        },
+        additionalAuthenticationProviders: [],
+      };
+      transformer = new GraphQLTransform({
+        authConfig,
+        transformers: [new ModelTransformer(), new AuthTransformer()],
+        featureFlags,
+      });
+      vtlTemplate = new VelocityTemplateSimulator({ authConfig });
+    });
+
+    test('oidc default', () => {
+      const validSchema = `
+      # owner authorization with provider override
+      type Profile @model @auth(rules: [{ allow: owner, provider: oidc }]) {
+        id: ID!
+        displayName: String!
+      }`;
+
+      const createProfileInput: AppSyncVTLContext = {
+        arguments: {
+          input: {
+            id: '001',
+            displayName: 'FooBar',
+          },
+        },
+      };
+
+      const out = transformer.transform(validSchema);
+      const createRequestTemplate = out.resolvers['Mutation.createProfile.auth.1.req.vtl'];
+      const createRequestAsSubOwner = vtlTemplate.render(createRequestTemplate, {
+        context: createProfileInput,
+        requestParameters: subIdUser,
+      });
+      expect(createRequestAsSubOwner.hadException).toEqual(false);
+      expect(createRequestAsSubOwner.args.input).toEqual(
+        expect.objectContaining({
+          id: '001',
+          displayName: 'FooBar',
+          owner: subIdUser.jwt.sub,
+        }),
+      );
+    });
   });
 });

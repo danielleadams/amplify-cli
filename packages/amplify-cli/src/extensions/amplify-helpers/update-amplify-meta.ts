@@ -8,6 +8,7 @@ import * as path from 'path';
 import { ensureAmplifyMetaFrontendConfig } from './on-category-outputs-change';
 import { getHashForResourceDir } from './resource-status';
 import { updateBackendConfigAfterResourceAdd, updateBackendConfigAfterResourceUpdate } from './update-backend-config';
+import { getAmplifyVersion } from './get-amplify-version';
 
 export function updateAwsMetaFile(
   filePath: string,
@@ -176,6 +177,7 @@ export function updateamplifyMetaAfterResourceUpdate(category: string, resourceN
 export async function updateamplifyMetaAfterPush(resources: $TSObject[]) {
   const amplifyMeta = stateManager.getMeta();
   const currentTimestamp = new Date();
+  const currentVersion = getAmplifyVersion();
 
   for (const resource of resources) {
     // Skip hash calculation for imported resources
@@ -213,6 +215,7 @@ export async function updateamplifyMetaAfterPush(resources: $TSObject[]) {
         }
 
         amplifyMeta[resource.category][resource.resourceName].lastPushTimeStamp = currentTimestamp;
+        amplifyMeta[resource.category][resource.resourceName].lastPushVersion = currentVersion;
       }
     }
 

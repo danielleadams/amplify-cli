@@ -41,6 +41,18 @@ if (anyAWS && anyAWS.config && anyAWS.config.credentials) {
   delete anyAWS.config.credentials;
 }
 
+const featureFlags = {
+  getBoolean: jest.fn().mockImplementation((name, defaultValue) => {
+    if (name === 'useSubForDefaultIdentityClaim') {
+      return true;
+    }
+    return defaultValue;
+  }),
+  getNumber: jest.fn(),
+  getObject: jest.fn(),
+  getString: jest.fn(),
+};
+
 // delay times
 const SUBSCRIPTION_DELAY = 10000;
 const PROPAGATION_DELAY = 5000;
@@ -76,6 +88,7 @@ let USER_POOL_ID: string;
 let IDENTITY_POOL_ID: string;
 let GRAPHQL_ENDPOINT: string;
 let API_KEY: string;
+let idToken, idToken2, idToken3, idToken4;
 
 /**
  * Client 1 is logged in and is a member of the Admin group.
@@ -223,6 +236,7 @@ beforeAll(async () => {
       ],
     },
     transformers: [new ModelTransformer(), new AuthTransformer()],
+    featureFlags,
   });
 
   try {
@@ -290,25 +304,25 @@ beforeAll(async () => {
   await authenticateUser(USERNAME3, TMP_PASSWORD, REAL_PASSWORD);
 
   const authResAfterGroup: any = await authenticateUser(USERNAME1, TMP_PASSWORD, REAL_PASSWORD);
-  const idToken = authResAfterGroup.getIdToken().getJwtToken();
+  idToken = authResAfterGroup.getIdToken();
   GRAPHQL_CLIENT_1 = new AWSAppSyncClient({
     url: GRAPHQL_ENDPOINT,
     region: AWS_REGION,
     disableOffline: true,
     auth: {
       type: AUTH_TYPE.AMAZON_COGNITO_USER_POOLS,
-      jwtToken: idToken,
+      jwtToken: idToken.getJwtToken(),
     },
   });
   const authRes2AfterGroup: any = await authenticateUser(USERNAME2, TMP_PASSWORD, REAL_PASSWORD);
-  const idToken2 = authRes2AfterGroup.getIdToken().getJwtToken();
+  idToken2 = authRes2AfterGroup.getIdToken();
   GRAPHQL_CLIENT_2 = new AWSAppSyncClient({
     url: GRAPHQL_ENDPOINT,
     region: AWS_REGION,
     disableOffline: true,
     auth: {
       type: AUTH_TYPE.AMAZON_COGNITO_USER_POOLS,
-      jwtToken: idToken2,
+      jwtToken: idToken2.getJwtToken(),
     },
   });
 
@@ -705,7 +719,7 @@ test('Test subscription onCreatePost with ownerField', async () => {
     // @ts-ignore
     query: gql`
     subscription OnCreatePost {
-        onCreatePost(postOwner: "${USERNAME1}") {
+        onCreatePost(postOwner: "${idToken.payload.sub}") {
             id
             title
             postOwner
@@ -719,7 +733,7 @@ test('Test subscription onCreatePost with ownerField', async () => {
       const post = event.value.data.onCreatePost;
       subscription.unsubscribe();
       expect(post.title).toEqual('someTitle');
-      expect(post.postOwner).toEqual(USERNAME1);
+      expect(post.postOwner).toEqual(idToken.payload.sub);
       resolve(undefined);
     });
   });
@@ -727,10 +741,10 @@ test('Test subscription onCreatePost with ownerField', async () => {
 
   const createPostResponse = await createPost(GRAPHQL_CLIENT_1, {
     title: 'someTitle',
-    postOwner: USERNAME1,
+    postOwner: idToken.payload.sub,
   });
   expect(createPostResponse.data.createPost.title).toEqual('someTitle');
-  expect(createPostResponse.data.createPost.postOwner).toEqual(USERNAME1);
+  expect(createPostResponse.data.createPost.postOwner).toEqual(idToken.payload.sub);
 
   return withTimeOut(subscriptionPromise, SUBSCRIPTION_TIMEOUT, 'OnCreatePost Subscription timed out', () => {
     subscription?.unsubscribe();
@@ -801,7 +815,7 @@ test('Test that IAM can listen and read to onCreatePost', async () => {
         expect(post).toBeDefined();
         expect(post.id).toEqual(postID);
         expect(post.title).toEqual(postTitle);
-        expect(post.postOwner).toEqual(USERNAME1);
+        expect(post.postOwner).toEqual(idToken.payload.sub);
         resolve(undefined);
       },
       err => {
@@ -811,10 +825,10 @@ test('Test that IAM can listen and read to onCreatePost', async () => {
   });
   await new Promise(res => setTimeout(res, SUBSCRIPTION_DELAY));
 
-  const createPostResponse = await createPost(GRAPHQL_CLIENT_1, { id: postID, title: postTitle, postOwner: USERNAME1 });
+  const createPostResponse = await createPost(GRAPHQL_CLIENT_1, { id: postID, title: postTitle, postOwner: idToken.payload.sub });
   expect(createPostResponse.data.createPost.id).toEqual(postID);
   expect(createPostResponse.data.createPost.title).toEqual(postTitle);
-  expect(createPostResponse.data.createPost.postOwner).toEqual(USERNAME1);
+  expect(createPostResponse.data.createPost.postOwner).toEqual(idToken.payload.sub);
   await new Promise(res => setTimeout(res, SUBSCRIPTION_DELAY));
   await subscriptionPromise;
 });
