@@ -1,12 +1,15 @@
 import readline from 'readline';
 import { Context } from '../domain/context';
 import { normalizeInputParams } from '../input-params-manager';
-import { $TSContext } from 'amplify-cli-core';
+import {
+  AmplifyError,
+  $TSContext,
+} from 'amplify-cli-core';
 
 const headlessPayloadReadTimeoutMilliseconds = 2000;
 
 // checks if the --headless flag is set on the amplify command;
-export const isHeadlessCommand = (context: any): boolean => context.input.options && context.input.options.headless;
+export const isHeadlessCommand = (context: any): boolean | undefined => context.input.options && context.input.options.headless;
 
 // waits for a line on stdin.
 // times out after the time specified above if no input received.
@@ -27,7 +30,10 @@ export const readHeadlessPayload = async (): Promise<string> => {
   // resolves a promise on the 'line' event
   return new Promise((resolve, reject) => {
     rl.on('line', (line) => resolve(line));
-    rl.on('close', () => reject(new Error('No input received on stdin')));
+    rl.on('close', () => reject(new AmplifyError('MissingExpectedParameterError', {
+      message: 'There was an error reading the JSON payload',
+      link: 'https://docs.amplify.aws/cli/usage/headless/#headless-category-payloads',
+    })));
   });
 };
 
