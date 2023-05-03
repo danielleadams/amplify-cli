@@ -797,7 +797,7 @@ export function addAuthWithDefaultSocial(cwd: string): Promise<void> {
       APPLE_TEAM_ID,
       APPLE_KEY_ID,
       APPLE_PRIVATE_KEY,
-    } = getSocialProviders(true);
+    } = getSocialProviders();
 
     spawn(getCLIPath(), ['add', 'auth'], { cwd, stripColors: true })
       .wait('Do you want to use the default authentication and security configuration?')
@@ -1962,5 +1962,106 @@ export function updateAuthWithGroupTrigger(cwd: string): Promise<void> {
     .send(KEY_DOWN_ARROW)
     .send(' ')
     .sendCarriageReturn()
+    .runAsync();
+}
+
+export async function updateAuthWithDefaultSocial(cwd: string): Promise<void> {
+  const {
+    FACEBOOK_APP_ID,
+    FACEBOOK_APP_SECRET,
+    GOOGLE_APP_ID,
+    GOOGLE_APP_SECRET,
+    AMAZON_APP_ID,
+    AMAZON_APP_SECRET,
+    APPLE_APP_ID,
+    APPLE_TEAM_ID,
+    APPLE_KEY_ID,
+    APPLE_PRIVATE_KEY,
+  } = getSocialProviders(true);
+
+  await spawn(getCLIPath(), ['update', 'auth'], { cwd, stripColors: true })
+    .wait('What do you want to do?')
+    .send(KEY_DOWN_ARROW)
+    .sendCarriageReturn()
+    .wait('Select the authentication/authorization services that you want to use:')
+    .sendCarriageReturn()
+    .wait('Allow unauthenticated logins?')
+    .sendCarriageReturn()
+    .wait('Do you want to enable 3rd party authentication providers in your identity pool?')
+    .sendCarriageReturn()
+    .wait('Do you want to add User Pool Groups?')
+    .send(KEY_DOWN_ARROW)
+    .sendCarriageReturn()
+    .wait('Do you want to add an admin queries API?')
+    .send(KEY_DOWN_ARROW)
+    .sendCarriageReturn()
+    .wait('Multifactor authentication (MFA) user login options:')
+    .sendCarriageReturn()
+    .wait('Email based user registration/forgot password:')
+    .sendCarriageReturn()
+    .wait('Please specify an email verification subject:')
+    .sendCarriageReturn()
+    .wait('Please specify an email verification message:')
+    .sendCarriageReturn()
+    .wait('Do you want to override the default password policy for this User Pool?')
+    .sendCarriageReturn()
+    .wait("Specify the app's refresh token expiration period (in days):")
+    .sendCarriageReturn()
+    .wait('Do you want to specify the user attributes this app can read and write?')
+    .sendCarriageReturn()
+    .wait('Do you want to enable any of the following capabilities?')
+    .sendCarriageReturn()
+    .wait('Do you want to use an OAuth flow?')
+    .sendCarriageReturn()
+    .wait('What domain name prefix do you want to use?')
+    .sendCarriageReturn()
+    .wait('Enter your redirect signin URI:')
+    .sendLine('https://www.google.com/')
+    .wait('Do you want to add another redirect signin URI')
+    .sendNo()
+    .wait('Enter your redirect signout URI:')
+    .sendLine('https://www.nytimes.com/')
+    .wait('Do you want to add another redirect signout URI')
+    .sendNo()
+    .wait('Select the OAuth flows enabled for this project.')
+    .sendCarriageReturn()
+    .wait('Select the OAuth scopes enabled for this project.')
+    .sendCarriageReturn()
+    .wait('Select the social providers you want to configure for your user pool:')
+    .send('a')
+    .sendCarriageReturn()
+    .wait('Enter your Facebook App ID for your OAuth flow:')
+    .send(FACEBOOK_APP_ID)
+    .sendCarriageReturn()
+    .wait('Enter your Facebook App Secret for your OAuth flow:')
+    .send(FACEBOOK_APP_SECRET)
+    .sendCarriageReturn()
+    .wait('Enter your Google Web Client ID for your OAuth flow:')
+    .send(GOOGLE_APP_ID)
+    .sendCarriageReturn()
+    .wait('Enter your Google Web Client Secret for your OAuth flow:')
+    .send(GOOGLE_APP_SECRET)
+    .sendCarriageReturn()
+    .wait('Enter your Amazon App ID for your OAuth flow:')
+    .send(AMAZON_APP_ID)
+    .sendCarriageReturn()
+    .wait('Enter your Amazon App Secret for your OAuth flow:')
+    .send(AMAZON_APP_SECRET)
+    .sendCarriageReturn()
+    .wait('Enter your Services ID for your OAuth flow:')
+    .send(APPLE_APP_ID)
+    .sendCarriageReturn()
+    .wait('Enter your Team ID for your OAuth flow:')
+    .send(APPLE_TEAM_ID)
+    .sendCarriageReturn()
+    .wait('Enter your Key ID for your OAuth flow:')
+    .send(APPLE_KEY_ID)
+    .sendCarriageReturn()
+    .wait('Enter your Private Key for your OAuth flow')
+    .send(APPLE_PRIVATE_KEY)
+    .sendCarriageReturn()
+    .wait('Do you want to configure Lambda Triggers for Cognito?')
+    .sendNo()
+    .sendEof()
     .runAsync();
 }
